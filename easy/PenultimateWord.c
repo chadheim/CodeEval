@@ -1,24 +1,17 @@
 #include <stdio.h>
+#include <string.h>
 
 int main(int argc, char* argv[]) {
-    char l[1024], *b[2], *c, w;
+    char l[1024], *w[2], *c;
     FILE *f = fopen(argv[1], "r");
     while (fgets(l, 1024, f)) {
-        if (*l != '\n') {
-            w = 0;
-            c = l-1;
-            do {
-                ++c;
-                if(*c == 0x0A) {
-                    puts(b[1 - w]);
-                } else if(*c == 0x20) {
-                    *c = 0x00;
-                } else if(c == l || *(c-1) == 0x00) {
-                    w = 1 - w;
-                    b[w] = c;
-                }
-            } while(*c != 0x0A);
-        }
+		c = strtok(l, " ");
+		while (c != NULL) {
+			w[0] = w[1];
+			w[1] = c;
+			c = strtok(NULL, " ");
+		}
+		puts(w[0]);
     }
     return 0;
 }
