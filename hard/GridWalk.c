@@ -70,7 +70,7 @@ int sum_digits(int num) {
     return sum;
 }
 
-int expand(int x, int y) {
+void expand(int x, int y) {
     if (sum_digits(x + 1) + sum_digits(y) <= 19)
         list_add(x + 1, y);
     if (sum_digits(x - 1) + sum_digits(y) <= 19)
