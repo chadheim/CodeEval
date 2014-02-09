@@ -2,19 +2,77 @@
 #include <stdlib.h>
 #include <memory.h>
 #include <ctype.h>
+#include <string.h>
 
-struct List {
+#ifndef max
+#define max(a,b)    (((a) > (b)) ? (a) : (b))
+#endif
+
+struct list {
     char *data[64];
     int length;
 };
 
-struct List names;
-struct List products;
-float *ss;
-float ss_max;
-int taken[1024];
+struct list names;
+struct list products;
 
-void list_parse(struct List *list, char *data) {
+struct cache_node {
+    struct cache_node *next;
+    int key;
+    float value;
+};
+
+struct cache {
+    struct cache_node **data;
+    int size;
+};
+
+struct cache ss_cache;
+struct cache ssmax_cache;
+
+void cache_alloc(struct cache *c, int size) {
+    c->size = size;
+    c->data = calloc(size, sizeof(struct cache_node *));
+}
+
+void cache_free(struct cache *c) {
+    for (int i = 0; i < c->size; ++i) {
+        while (c->data[i]) {
+            struct cache_node *n = c->data[i];
+            c->data[i] = c->data[i]->next;
+            free(n);
+        }
+    }
+    free(c->data);
+}
+
+int cache_hash(struct cache *c, int key) {
+    return key % c->size;
+}
+
+int cache_find(struct cache *c, int key, float *value) {
+    struct cache_node *n = c->data[cache_hash(c, key)];
+    while (n != NULL) {
+        if (n->key == key) {
+            *value = n->value;
+            return 1; 
+        }
+        n = n->next;
+    }
+    return 0;
+}
+
+void cache_add(struct cache *c, int key, float value) {
+    struct cache_node *n;
+    n = malloc(sizeof(struct cache_node));
+    n->key = key;
+    n->value = value;
+    int h = cache_hash(c, key);
+    n->next = c->data[h];
+    c->data[h] = n;
+}
+
+void list_parse(struct list *list, char *data) {
     list->length = 0;
     char *e = strtok(data, ",");
     while(e != NULL) {
@@ -76,7 +134,7 @@ float ss_calc(char* name, char* product) {
     }
     int m = (ln <= lp) ? ln : lp;
     int n = 2;
-    while (n < m) {
+    while (n <= m) {
         if(lp % n == 0 && ln % n == 0) {
             value *= 1.5f;
             break;
@@ -86,12 +144,37 @@ float ss_calc(char* name, char* product) {
     return value;
 }
 
-float ss_calc_max(int row, float score) {
-    for(int i=0; i<names.length; ++i) {
-        if(!taken[i]) {
-            taken[i] = 1;
-            ss_calc_max(row + 1, ss[i * names.length + j])
-            taken[i] = 0;
+float ss(int n, int p) {
+    float v = 0.0f;
+    int k = n * products.length + p;
+    if (!cache_find(&ss_cache, k, &v)) {
+        v = ss_calc(names.data[n], products.data[p]);
+        cache_add(&ss_cache, k, v);
+    }
+    return v;
+}
+
+float ss_calc_max_n(int n, int markers) {
+    float v = 0;
+    if (n < names.length) {
+        if (!cache_find(&ssmax_cache, markers, &v)) {
+            for (int p = 0; p < products.length; ++p)
+                if ((markers & (1 << p)) == 0)
+                    v = max(v, ss(n, p) + ss_calc_max_n(n + 1, markers | (1 << p)));
+            cache_add(&ssmax_cache, markers, v);
+        }
+    }
+    return v;
+}
+
+float ss_calc_max_p(int p, int markers) {
+    float v = 0;
+    if (p < products.length) {
+        if (!cache_find(&ssmax_cache, markers, &v)) {
+            for (int n = 0; n < names.length; ++n)
+                if ((markers & (1 << n)) == 0)
+                    v = max(v, ss(n, p) + ss_calc_max_p(p + 1, markers | (1 << n)));
+            cache_add(&ssmax_cache, markers, v);
         }
     }
     return v;
@@ -103,21 +186,29 @@ int main(int argc, char *argv[]) {
 	while (fgets(l, 1024, f) != NULL) {
         if(*l != '\n') {
             upper(l);
-            printf("%s\n", l);
-            char *p = strchr(l, ';');
+            char *p = strchr(l, '\n');
+            if (p) *p = '\0';
+            p = strchr(l, ';');
             *p = '\0';
-            
+
             list_parse(&names, l);
             list_parse(&products, p + 1);
 
-            float *ss = malloc(names.length * products.length * sizeof(float));
-            for(int i=0; i<products.length; ++i)
-                for(int j=0; j<names.length; ++j)
-                    ss[i*names.length+j] = ss_calc(names.data[j], products.data[i]);
+            cache_alloc(&ss_cache, names.length * products.length);
+            cache_alloc(&ssmax_cache, 1024);
 
-            ss_calc_max(0, 0);
-            printf("%f\n", ss_max);
-            free(ss);
+            if (names.length > 0 && products.length > 0) {
+                if (names.length <= products.length) {
+                    printf("%0.2f\n", ss_calc_max_n(0, 0));
+                } else {
+                    printf("%0.2f\n", ss_calc_max_p(0, 0));
+                }
+            } else {
+                printf("0.00\n");
+            }
+
+            cache_free(&ssmax_cache);
+            cache_free(&ss_cache);
         }
     }
     fclose(f);
