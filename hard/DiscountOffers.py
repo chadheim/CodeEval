@@ -1,12 +1,14 @@
 import sys
-import itertools
 import fractions
+
 
 def isvowel(c):
     return c in 'AEIOUY'
 
+
 def isconsonant(c):
     return str.isalpha(c) and not isvowel(c)
+
 
 def ss(n, p):
     nl = sum(map(str.isalpha, n))
@@ -23,13 +25,15 @@ with open(sys.argv[1]) as f:
     for line in f:
         b = line.upper().rstrip().split(';')
         if len(b) == 2:
-            m = list(map((lambda s: s.split(',')), b))
-            names = m[0]
-            products = m[1]
-            ss_max = 0
-            for np in itertools.permutations(range(len(products)), len(names)):
-                total = 0
-                for n, p in enumerate(np):
-                    total += ss(names[n], products[p])
-                ss_max = max(ss_max, total)
-            print(ss_max)
+            names = b[0].split(',')
+            print(names)
+            products = b[1].split(',')
+            print(products)
+            matrix = [[ss(n, p) for p in products] for n in names]
+            print(matrix)
+            max_overall = max(max(row) for row in matrix)
+            print(max_overall)
+            inv_matrix = [[max_overall - col for col in row] for row in matrix]
+            print(inv_matrix)
+            inv_matrix = [[col - min(row) for col in row] for row in inv_matrix]
+            print(inv_matrix)
