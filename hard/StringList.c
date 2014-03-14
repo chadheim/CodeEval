@@ -2,73 +2,75 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define ALPHABET_SIZE 26
+
 struct trie {
-    struct trie *n[26];
+    struct trie *letter[ALPHABET_SIZE];
 };
 
-void combinations(char *s, int l, int d, int m, struct trie *n) {
-    if (d < m) {
-        for (int i = 0; i < l; ++i) {
-            int c = s[i] - 'a';
-            if (!n->n[c])
-                n->n[c] = calloc(1, sizeof(struct trie));
-            combinations(s, l, d + 1, m, n->n[c]);
+int skip_comma;
+char word[1024];
+int word_size;
+char letters[1024];
+int letters_size;
+
+void insert_combinations(struct trie *node, int word_pos) {
+    if (word_pos < word_size) {
+        for (int i = 0; i < letters_size; ++i) {
+            int c = letters[i] - 'a';
+            if (!node->letter[c])
+                node->letter[c] = calloc(1, sizeof(struct trie));
+            insert_combinations(node->letter[c], word_pos + 1);
         }
     }
 }
 
-int comma;
-
-void print(struct trie *n, int d, char *s) {
-    int cnt = 0;
-    for (int i = 0; i < 26; ++i) {
-        if (n->n[i]) {
-            cnt += 1;
-            s[d] = i + 'a';
-            print(n->n[i], d + 1, s);
+void print_combinations(struct trie *node, int word_pos) {
+    int node_empty = 1;
+    for (int i = 0; i < ALPHABET_SIZE; ++i) {
+        if (node->letter[i]) {
+            node_empty = 0;
+            word[word_pos] = i + 'a';
+            print_combinations(node->letter[i], word_pos + 1);
         }
     }
-    if (cnt == 0) {
-        if (comma)
+    if (node_empty) {
+        if (!skip_comma)
             printf(",");
-        s[d] = NULL;
-        printf("%s", s);
-        comma = 1;
+        skip_comma = 0;
+
+        word[word_pos] = '\0';
+        printf("%s", word);
     }
 }
 
-void release(struct trie *n) {
-    for (int i = 0; i < 26; ++i) {
-        if (n->n[i]) {
-            release(n->n[i]);
-            free(n->n[i]);
+void release(struct trie *node) {
+    for (int i = 0; i < ALPHABET_SIZE; ++i) {
+        if (node->letter[i]) {
+            release(node->letter[i]);
+            free(node->letter[i]);
         }
     }
-}
-
-int cmp(const void * a, const void * b) {
-    return (*(char*)a - *(char*)b);
 }
 
 int main(int argc, char* argv[]) {
     FILE *f = fopen(argv[1], "r");
 
-    int n;
-    char s[1024];
-    while (fscanf(f, "%d,%s", &n, s) == 2) {
+    while (fscanf(f, "%d,%s", &word_size, letters) == 2) {
 
-        int l = strlen(s);
-        qsort(s, l, sizeof(char), cmp);
+        letters_size = strlen(letters);
 
-        struct Node *r = calloc(1, sizeof(struct trie));
-        combinations(s, l, 0, n, r);
+        struct trie *root = calloc(1, sizeof(struct trie));
 
-        comma = 0;
-        print(r, 0, s);
+        insert_combinations(root, 0);
+
+        skip_comma = 1;
+        print_combinations(root, 0);
+
         printf("\n");
 
-        release(r);
-        free(r);
+        release(root);
+        free(root);
     }
 
     fclose(f);
