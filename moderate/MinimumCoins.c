@@ -7,9 +7,9 @@ int main(int argc, char* argv[]) {
     while (fscanf(f, "%d", &n) == 1) {
 
         int a = n / 5;
-        n -= a * 5;
+        n %= 5;
         int b = n / 3;
-        n -= b * 3;
+        n %= 3;
 
         printf("%d\n", a + b + n);
     }
